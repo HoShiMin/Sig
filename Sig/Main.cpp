@@ -1,6 +1,5 @@
 ﻿#include <Sig/Sig.hpp>
 
-#include <cstdio>
 #include <intrin.h>
 
 #define sig_assert(cond) if (!(cond)) { __int2c(); }
@@ -84,6 +83,9 @@ namespace
             found = Sig::find<Sig::Char<'t', 'e', 'x', 't'>>(g_arr, sizeof(g_arr));
             sig_assert(found == &g_arr[36]);
 
+            found = Sig::find<Sig::ByteMask<0b1010, 0b1111>>(g_arr, sizeof(g_arr));
+            sig_assert(found == &g_arr[24]);
+
             found = Sig::find<Sig::Rep<Sig::Char<'r'>, 3>>(g_arr, sizeof(g_arr));
             sig_assert(found == &g_arr[30]);
 
@@ -96,10 +98,10 @@ namespace
             found = Sig::find<Sig::Rep<Sig::Char<'r'>, 6>, Sig::Char<'t', 'e', 'x', 't'>>(g_arr, sizeof(g_arr));
             sig_assert(found == &g_arr[30]);
 
-            found = Sig::find<Sig::Byte<0x10>, Sig::NotByte<0x00, 0x00, 0x00, 0x00>, Sig::Byte<0x15>>(g_arr, sizeof(g_arr));
+            found = Sig::find<Sig::Byte<0x10>, Sig::CmpByte<Sig::Cmp::NotEq, 0x00, 0x00, 0x00, 0x00>, Sig::Byte<0x15>>(g_arr, sizeof(g_arr));
             sig_assert(found == &g_arr[14]);
 
-            found = Sig::find<Sig::Byte<0x10>, Sig::NotDword<0x00000000>, Sig::Byte<0x15>>(g_arr, sizeof(g_arr));
+            found = Sig::find<Sig::Byte<0x10>, Sig::CmpDword<Sig::Cmp::NotEq, 0x00000000>, Sig::Byte<0x15>>(g_arr, sizeof(g_arr));
             sig_assert(found == &g_arr[14]);
 
             using Syscall = Sig::Compound<Sig::Byte<0x0F, 0x05>>;         // syscall
@@ -146,7 +148,13 @@ namespace
             found = Sig::find(g_arr, sizeof(g_arr), "", "");
             sig_assert(found == &g_arr[0]);
 
+            found = Sig::find(g_arr, 0, "", "");
+            sig_assert(found == nullptr);
+
             found = Sig::find(g_arr, sizeof(g_arr), "????", "....");
+            sig_assert(found == nullptr);
+
+            found = Sig::find(g_arr, 0, "????", "....");
             sig_assert(found == nullptr);
 
             found = Sig::find<Sig::Mask::Eq<'.'>, Sig::Mask::Any<'?'>>(g_arr, sizeof(g_arr), "????", "....");
@@ -183,7 +191,16 @@ namespace
             >(g_arr, sizeof(g_arr), "\x01\x01\x00\x02\x03\x00\x00\x04\x04\x04", ".>?oa??...");
             sig_assert(found == &g_arr[4]);
 
-            struct CustomCmp : Sig::Mask::CharHolder<'c'>
+            found = Sig::find<Sig::Mask::Eq<'.'>, Sig::Mask::BitMask<'m'>>(
+                g_arr,
+                sizeof(g_arr),
+                "\x88\x99\xAA\x1B\xCC\xDD\xEE\xFF",
+                "\x00\x00\x00\x1F\x00\x00\x00\x00",
+                "...m...."
+            );
+            sig_assert(found == &g_arr[48]);
+
+            struct CustomCmp : Sig::Mask::MaskCmp<'c'>
             {
                 static bool cmp(const char data, const char pattern)
                 {
@@ -198,6 +215,38 @@ namespace
 
             found = Sig::find<Sig::Mask::Eq<'.'>, Sig::Mask::Any<'?'>>(g_arr, sizeof(g_arr), "\x01\x02\x02\x03\x03\x03", "....u.");
             sig_assert(found == nullptr);
+        }
+    }
+
+    namespace BitmaskTests
+    {
+        void runTests()
+        {
+            const void* found = nullptr;
+
+            found = Sig::bitmask(g_arr, sizeof(g_arr), nullptr, nullptr, 0);
+            sig_assert(found == nullptr);
+
+            found = Sig::bitmask(g_arr, sizeof(g_arr), nullptr, nullptr, 10);
+            sig_assert(found == nullptr);
+
+            found = Sig::bitmask(g_arr, sizeof(g_arr), "", "", 0);
+            sig_assert(found == nullptr);
+
+            found = Sig::bitmask(g_arr, sizeof(g_arr), "\x11\x22\x33\x44", nullptr, 4);
+            sig_assert(found == nullptr);
+
+            found = Sig::bitmask(g_arr, sizeof(g_arr), nullptr, "\x11\x22\x33\x44", 4);
+            sig_assert(found == nullptr);
+
+            found = Sig::bitmask(g_arr, sizeof(g_arr), "\x00\x11\x22\x33", "\xFF\xFF\xFF\xFF", 4);
+            sig_assert(found == &g_arr[40]);
+
+            found = Sig::bitmask(g_arr, sizeof(g_arr), "\x00\xFF\x22\x33", "\xFF\x00\xFF\xFF", 4);
+            sig_assert(found == &g_arr[40]);
+
+            found = Sig::bitmask(g_arr, sizeof(g_arr), "\x00\x11\x22\xFF", "\xFF\x00\xFF\x03", 4);
+            sig_assert(found == &g_arr[40]);
         }
     }
 
@@ -246,6 +295,7 @@ namespace
     {
         TemplateTests::runTests();
         MaskTests::runTests();
+        BitmaskTests::runTests();
         OneLineTests::runTests();
     }
 }

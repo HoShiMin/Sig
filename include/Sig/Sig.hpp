@@ -1,6 +1,6 @@
 #pragma once
 
-#include <string.h>
+#include <cstring>
 
 struct Sig
 {
@@ -9,6 +9,7 @@ struct Sig
         val,
         any,
         pkg,
+        raw,
         rep,
         set,
         range,
@@ -95,6 +96,7 @@ struct Sig
     {
     };
 
+
     template <typename Type, template <typename BaseType, BaseType val> typename Comparator, Type... values>
     struct Holder
     {
@@ -129,6 +131,16 @@ struct Sig
         static constexpr auto k_size = sizeof(Type);
     };
     static_assert(Holder<int, Cmp::Eq, 1>::k_tag == Tag::val);
+
+    template <typename Type, size_t count = 1>
+    struct RawCmp
+    {
+        using BaseType = Type;
+
+        static constexpr auto k_tag = Tag::raw;
+        static constexpr auto k_count = count;
+        static constexpr auto k_size = sizeof(Type) * k_count;
+    };
 
     template <typename Repeatable, size_t count>
     struct Rep
@@ -294,7 +306,7 @@ struct Sig
     {
         static bool cmp(const void* const pos)
         {
-            if constexpr (Entry::k_tag == Tag::val)
+            if constexpr ((Entry::k_tag == Tag::val) || (Entry::k_tag == Tag::raw))
             {
                 const bool matches = Comparator<Entry>::cmp(pos);
                 return matches && Comparator<Entries...>::cmp(static_cast<const unsigned char*>(pos) + Entry::k_size);
@@ -343,6 +355,10 @@ struct Sig
             else if constexpr (Entry::k_tag == Tag::pkg)
             {
                 return PackedCmp::cmp(typename Entry::Package{}, pos);
+            }
+            else if constexpr (Entry::k_tag == Tag::raw)
+            {
+                return Entry::cmp(pos);
             }
             else if constexpr (Entry::k_tag == Tag::rep)
             {
@@ -403,113 +419,255 @@ struct Sig
         return nullptr;
     }
 
-    template <typename Type, Type... values>
-    using EntryType = Holder<Type, Cmp::Eq, values...>;
-
-    template <typename Type, Type... values>
-    using NotEntryType = Holder<Type, Cmp::NotEq, values...>;
-
-    template <char... values>
-    using Char = EntryType<char, values...>;
-
-    template <wchar_t... values>
-    using WChar = EntryType<wchar_t, values...>;
-
-    template <unsigned char... values>
-    using Byte = EntryType<unsigned char, values...>;
-
-    template <unsigned short... values>
-    using Word = EntryType<unsigned short, values...>;
-
-    template <unsigned int... values>
-    using Dword = EntryType<unsigned int, values...>;
-
-    template <unsigned long long... values>
-    using Qword = EntryType<unsigned long long, values...>;
-
-    template <short... values>
-    using Short = EntryType<short, values...>;
-
-    template <unsigned short... values>
-    using UShort = EntryType<unsigned short, values...>;
-
-    template <long... values>
-    using Long = EntryType<long, values...>;
-
-    template <unsigned long... values>
-    using ULong = EntryType<unsigned long, values...>;
-
-    template <long long... values>
-    using LongLong = EntryType<long long, values...>;
-
-    template <unsigned long long... values>
-    using ULongLong = EntryType<unsigned long long, values...>;
-
-    template <int... values>
-    using Int = EntryType<int, values...>;
-
-    template <unsigned int... values>
-    using UInt = EntryType<unsigned int, values...>;
-
-    template <long long... values>
-    using Int64 = EntryType<long long, values...>;
-
-    template <unsigned long long... values>
-    using UInt64 = EntryType<unsigned long long, values...>;
+    template <typename Type, Type value, Type mask>
+    struct Bitmask : RawCmp<Type>
+    {
+        static bool cmp(const void* const pos)
+        {
+            return (*static_cast<const Type*>(pos) & mask) == (value & mask);
+        }
+    };
 
 
+    template <template <typename BaseType, BaseType val> typename Comparator, char... values>
+    using CmpChar = Holder<char, Comparator, values...>;
 
     template <char... values>
-    using NotChar = NotEntryType<char, values...>;
+    using Char = CmpChar<Cmp::Eq, values...>;
+
+
+    template <template <typename BaseType, BaseType val> typename Comparator, wchar_t... values>
+    using CmpWChar = Holder<wchar_t, Comparator, values...>;
 
     template <wchar_t... values>
-    using NotWChar = NotEntryType<wchar_t, values...>;
+    using WChar = CmpWChar<Cmp::Eq, values...>;
+
+
+    template <template <typename BaseType, BaseType val> typename Comparator, unsigned char... values>
+    using CmpByte = Holder<unsigned char, Comparator, values...>;
 
     template <unsigned char... values>
-    using NotByte = NotEntryType<unsigned char, values...>;
+    using Byte = CmpByte<Cmp::Eq, values...>;
+
+
+    template <template <typename BaseType, BaseType val> typename Comparator, unsigned short... values>
+    using CmpWord = Holder<unsigned short, Comparator, values...>;
 
     template <unsigned short... values>
-    using NotWord = NotEntryType<unsigned short, values...>;
+    using Word = CmpWord<Cmp::Eq, values...>;
+
+
+    template <template <typename BaseType, BaseType val> typename Comparator, unsigned int... values>
+    using CmpDword = Holder<unsigned int, Comparator, values...>;
 
     template <unsigned int... values>
-    using NotDword = NotEntryType<unsigned int, values...>;
+    using Dword = CmpDword<Cmp::Eq, values...>;
+
+
+    template <template <typename BaseType, BaseType val> typename Comparator, unsigned long long... values>
+    using CmpQword = Holder<unsigned long long, Comparator, values...>;
 
     template <unsigned long long... values>
-    using NotQword = NotEntryType<unsigned long long, values...>;
+    using Qword = CmpQword<Cmp::Eq, values...>;
+
+
+    template <template <typename BaseType, BaseType val> typename Comparator, short... values>
+    using CmpShort = Holder<short, Comparator, values...>;
 
     template <short... values>
-    using NotShort = NotEntryType<short, values...>;
+    using Short = CmpShort<Cmp::Eq, values...>;
+
+
+    template <template <typename BaseType, BaseType val> typename Comparator, unsigned short... values>
+    using CmpUShort = Holder<unsigned short, Comparator, values...>;
 
     template <unsigned short... values>
-    using NotUShort = NotEntryType<unsigned short, values...>;
+    using UShort = CmpUShort<Cmp::Eq, values...>;
+
+
+    template <template <typename BaseType, BaseType val> typename Comparator, long... values>
+    using CmpLong = Holder<long, Comparator, values...>;
 
     template <long... values>
-    using NotLong = NotEntryType<long, values...>;
+    using Long = CmpLong<Cmp::Eq, values...>;
+
+
+    template <template <typename BaseType, BaseType val> typename Comparator, unsigned long... values>
+    using CmpULong = Holder<unsigned long, Comparator, values...>;
 
     template <unsigned long... values>
-    using NotULong = NotEntryType<unsigned long, values...>;
+    using ULong = CmpULong<Cmp::Eq, values...>;
+
+
+    template <template <typename BaseType, BaseType val> typename Comparator, long long... values>
+    using CmpLongLong = Holder<long long, Comparator, values...>;
 
     template <long long... values>
-    using NotLongLong = NotEntryType<long long, values...>;
+    using LongLong = CmpLongLong<Cmp::Eq, values...>;
+
+
+    template <template <typename BaseType, BaseType val> typename Comparator, unsigned long long... values>
+    using CmpULongLong = Holder<unsigned long long, Comparator, values...>;
 
     template <unsigned long long... values>
-    using NotULongLong = NotEntryType<unsigned long long, values...>;
+    using ULongLong = CmpULongLong<Cmp::Eq, values...>;
+
+
+    template <template <typename BaseType, BaseType val> typename Comparator, int... values>
+    using CmpInt = Holder<int, Comparator, values...>;
 
     template <int... values>
-    using NotInt = NotEntryType<int, values...>;
+    using Int = CmpInt<Cmp::Eq, values...>;
+
+
+    template <template <typename BaseType, BaseType val> typename Comparator, unsigned int... values>
+    using CmpUInt = Holder<unsigned int, Comparator, values...>;
 
     template <unsigned int... values>
-    using NotUInt = NotEntryType<unsigned int, values...>;
+    using UInt = CmpUInt<Cmp::Eq, values...>;
+
+
+    template <template <typename BaseType, BaseType val> typename Comparator, long long... values>
+    using CmpInt64 = Holder<long long, Comparator, values...>;
 
     template <long long... values>
-    using NotInt64 = NotEntryType<long long, values...>;
+    using Int64 = CmpInt64<Cmp::Eq, values...>;
+
+
+    template <template <typename BaseType, BaseType val> typename Comparator, unsigned long long... values>
+    using CmpUInt64 = Holder<unsigned long long, Comparator, values...>;
 
     template <unsigned long long... values>
-    using NotUInt64 = NotEntryType<unsigned long long, values...>;
+    using UInt64 = CmpUInt64<Cmp::Eq, values...>;
 
 
 
+    template <unsigned char value, unsigned char mask>
+    using ByteMask = BitMask<unsigned char, value, mask>;
 
+    template <unsigned short value, unsigned short mask>
+    using WordMask = BitMask<unsigned short, value, mask>;
+
+    template <unsigned int value, unsigned int mask>
+    using DwordMask = BitMask<unsigned int, value, mask>;
+
+    template <unsigned long long value, unsigned long long mask>
+    using QwordMask = BitMask<unsigned long long, value, mask>;
+
+
+
+    struct Mask
+    {
+        enum class CmpType
+        {
+            basic,
+            extended
+        };
+
+        template <char ch>
+        struct MaskCmp
+        {
+            static constexpr auto k_char = ch;
+            static constexpr auto k_type = CmpType::basic;
+        };
+
+        template <char ch>
+        struct MaskCmpEx
+        {
+            static constexpr auto k_char = ch;
+            static constexpr auto k_type = CmpType::extended;
+        };
+
+        template <char ch>
+        struct Eq : MaskCmp<ch>
+        {
+            static bool cmp(const char data, const char pattern)
+            {
+                return data == pattern;
+            }
+        };
+
+        template <char ch>
+        struct NotEq : MaskCmp<ch>
+        {
+            static bool cmp(const char data, const char pattern)
+            {
+                return data != pattern;
+            }
+        };
+
+        template <char ch>
+        struct Gr : MaskCmp<ch>
+        {
+            static bool cmp(const char data, const char pattern)
+            {
+                return data > pattern;
+            }
+        };
+
+        template <char ch>
+        struct GrEq : MaskCmp<ch>
+        {
+            static bool cmp(const char data, const char pattern)
+            {
+                return data >= pattern;
+            }
+        };
+
+        template <char ch>
+        struct Le : MaskCmp<ch>
+        {
+            static bool cmp(const char data, const char pattern)
+            {
+                return data < pattern;
+            }
+        };
+
+        template <char ch>
+        struct LeEq : MaskCmp<ch>
+        {
+            static bool cmp(const char data, const char pattern)
+            {
+                return data <= pattern;
+            }
+        };
+
+        template <char ch>
+        struct OneOf : MaskCmp<ch>
+        {
+            static bool cmp(const char data, const char pattern)
+            {
+                return (data & pattern) != 0;
+            }
+        };
+
+        template <char ch>
+        struct AllOf : MaskCmp<ch>
+        {
+            static bool cmp(const char data, const char pattern)
+            {
+                return (data & pattern) == pattern;
+            }
+        };
+
+        template <char ch>
+        struct BitMask : MaskCmpEx<ch>
+        {
+            static bool cmp(const char data, const char pattern, const char subpattern)
+            {
+                return (data & subpattern) == (pattern & subpattern);
+            }
+        };
+
+        template <char ch>
+        struct Any : MaskCmp<ch>
+        {
+            static bool cmp(const char, const char)
+            {
+                return true;
+            }
+        };
+    };
 
     template <typename... Entries>
     struct MaskComparator
@@ -530,6 +688,29 @@ struct Sig
                 return MaskComparator<Entries...>::cmp(data, pattern, mask);
             }
         }
+
+        static bool cmp(const char data, const char pattern, const char subpattern, const char mask)
+        {
+            if (mask == Entry::k_char)
+            {
+                if constexpr (Entry::k_type == Mask::CmpType::basic)
+                {
+                    return Entry::cmp(data, pattern);
+                }
+                else if constexpr (Entry::k_type == Mask::CmpType::extended)
+                {
+                    return Entry::cmp(data, pattern, subpattern);
+                }
+                else
+                {
+                    static_assert("Unknown type of comparator");
+                }
+            }
+            else
+            {
+                return MaskComparator<Entries...>::cmp(data, pattern, subpattern, mask);
+            }
+        }
     };
 
     template <>
@@ -539,103 +720,20 @@ struct Sig
         {
             return false;
         }
+
+        static bool cmp(const char, const char, const char, const char)
+        {
+            return false;
+        }
     };
 
-    struct Mask
-    {
-        template <char ch>
-        struct CharHolder
-        {
-            static constexpr auto k_char = ch;
-        };
 
-        template <char ch>
-        struct Eq : CharHolder<ch>
-        {
-            static bool cmp(const char data, const char pattern)
-            {
-                return data == pattern;
-            }
-        };
-
-        template <char ch>
-        struct NotEq : CharHolder<ch>
-        {
-            static bool cmp(const char data, const char pattern)
-            {
-                return data != pattern;
-            }
-        };
-
-        template <char ch>
-        struct Gr : CharHolder<ch>
-        {
-            static bool cmp(const char data, const char pattern)
-            {
-                return data > pattern;
-            }
-        };
-
-        template <char ch>
-        struct GrEq : CharHolder<ch>
-        {
-            static bool cmp(const char data, const char pattern)
-            {
-                return data >= pattern;
-            }
-        };
-
-        template <char ch>
-        struct Le : CharHolder<ch>
-        {
-            static bool cmp(const char data, const char pattern)
-            {
-                return data < pattern;
-            }
-        };
-
-        template <char ch>
-        struct LeEq : CharHolder<ch>
-        {
-            static bool cmp(const char data, const char pattern)
-            {
-                return data <= pattern;
-            }
-        };
-
-        template <char ch>
-        struct OneOf : CharHolder<ch>
-        {
-            static bool cmp(const char data, const char pattern)
-            {
-                return (data & pattern) != 0;
-            }
-        };
-
-        template <char ch>
-        struct AllOf : CharHolder<ch>
-        {
-            static bool cmp(const char data, const char pattern)
-            {
-                return (data & pattern) == pattern;
-            }
-        };
-
-        template <char ch>
-        struct Any : CharHolder<ch>
-        {
-            static bool cmp(const char, const char)
-            {
-                return true;
-            }
-        };
-    };
 
     // Pattern format: "\x11\x2\x00text" + "..?....", meaning of mask chars is customizable by Sig:Mask::* types
     template <typename... Comparators>
     static const void* find(const void* const buf, const size_t size, const char* const sig, const char* const mask, const size_t sigsize)
     {
-        if (!sig || !mask)
+        if (!size || !sig || !mask)
         {
             return nullptr;
         }
@@ -676,6 +774,90 @@ struct Sig
         }
 
         return find<Comparators...>(buf, size, sig, mask, strlen(mask));
+    }
+
+    // Pattern format: "\x11\x2\x00text" + nullptr/"....\x1C\x03." + "..?.mm.", meaning of mask chars is customizable by Sig:Mask::* types
+    template <typename... Comparators>
+    static const void* find(const void* const buf, const size_t size, const char* const sig, const char* const subsig, const char* const mask, const size_t sigsize)
+    {
+        if (!sig || !subsig || !mask)
+        {
+            return nullptr;
+        }
+
+        const auto* pos = static_cast<const unsigned char*>(buf);
+        const auto* const end = static_cast<const unsigned char*>(buf) + size - sigsize + 1;
+        while (pos < end)
+        {
+            bool result = true;
+            for (size_t i = 0; i < sigsize; ++i)
+            {
+                const bool matches = MaskComparator<Comparators...>::cmp(pos[i], sig[i], subsig[i], mask[i]);
+                result &= matches;
+                if (!result)
+                {
+                    break;
+                }
+            }
+
+            if (result)
+            {
+                return pos;
+            }
+
+            ++pos;
+        }
+
+        return nullptr;
+    }
+
+    // Pattern format: "\x11\x2\x00text" + "..?....", meaning of mask chars is customizable by Sig::Mask::* types
+    template <typename... Comparators>
+    static const void* find(const void* const buf, const size_t size, const char* const sig, const char* const subsig, const char* const mask)
+    {
+        if (!mask)
+        {
+            return nullptr;
+        }
+
+        return find<Comparators...>(buf, size, sig, subsig, mask, strlen(mask));
+    }
+
+    // Pattern format: sig ("\x0D\xCB\xFF") + valuable bits in the sig that must match ("\x0D\xFF\x03")
+    static const void* bitmask(const void* const buf, const size_t size, const void* const sig, const void* const mask, size_t sigsize)
+    {
+        if (!sig || !mask || !sigsize)
+        {
+            return nullptr;
+        }
+
+        const auto* const val = static_cast<const unsigned char*>(sig);
+        const auto* const msk = static_cast<const unsigned char*>(mask);
+
+        const auto* pos = static_cast<const unsigned char*>(buf);
+        const auto* const end = static_cast<const unsigned char*>(buf) + size - sigsize + 1;
+        while (pos < end)
+        {
+            bool result = true;
+            for (size_t i = 0; i < sigsize; ++i)
+            {
+                const bool matches = ((pos[i] & msk[i]) == (val[i] & msk[i]));
+                result &= matches;
+                if (!result)
+                {
+                    break;
+                }
+            }
+
+            if (result)
+            {
+                return pos;
+            }
+
+            ++pos;
+        }
+
+        return nullptr;
     }
 
     // Pattern format: "11 22 ? 44 ?? ?? 66 aa bB Cc DD ee FF" ('?' and '??' have the same meaning: any byte)
