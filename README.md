@@ -6,7 +6,7 @@
 * * One-line pattern: `"11 22 ? AA BB ? ? EE FF"`
 * * Bitmask + valuable bits mask: `"\x11\x13\x33"` + `"\xFF\x1F\xFF"`
 * Support for template-based patterns:
-* * `Sig::find<Sig::Byte<1, 2, 3>, Sig::Dword<>, Sig::Char<'a', 'b', 'c'>>(buf, size);`
+* * `Sig::find<Sig::Byte<1, 2, 3>, Sig::Dword<>, Sig::StrEq<"text">>(buf, size);`
 * Support for custom comparators.
 * Extensible and customizable patterns.
 * Header-only.
@@ -61,6 +61,10 @@ Sig::Cmp::OneOf    // One of a bits is setted ((value & mask) != 0)
 Sig::Cmp::AllOf    // All of a bits are setted ((value & mask) == mask)
 Sig::Cmp::BitMask<mask, mean>  // All of the specified bits are equal to the pattern ((val & mean) == (mask & mean))
 
+// Special cases for strings (requires C++20 or above):
+Sig::StrEq<"Sample text">        // Compare the string as-is (not including null-terminator)
+Sig::StrEqNoCase<"SaMpLe TeXt">  // Case-insensitive comparation (only for English text)
+
 // Containers:
 Sig::Rep<Tag, count>  // Repeat a tag by a count times, e.g. Sig::Rep<Sig::Byte<0xFF>, 3> to compare with \xFF\xFF\xFF
 Sig::Set<Tag1, Tag2, ...>  // Check an equality with one of defined tags, e.g. Sig::Set<Sig::Byte<1>, Sig::Dword<-1u>>
@@ -76,6 +80,12 @@ Sig::find<Sig::Byte<1, 2, 3>>(buf, size);
 // Find the sequence with a couple of unknown bytes (0x01 0x02 ? 0x04):
 Sig::find<Sig::Byte<1, 2>, Sig::Byte<>, Sig::Byte<4>>(buf, size);
 //                                  ^ Any byte
+
+// Find the null-terminated strings:
+Sig::find<
+    Sig::StrEq<"text">, Sig::Char<0x00>, // ASCII-compatible string
+    Sig::StrEqNoCase<L"TeXt">, Sig::WChar<0x0000> // UTF-16 string
+>(buf, size);
 
 // Using different comparators:
 Sig::find<
@@ -140,6 +150,39 @@ using IsDivisibleByByte = IsDivisibleByCmp<unsigned char, values...>;
 
 const uint8_t buf[]{ 3, 4, 5, 10, 15, 17 };
 Sig::find<IsDivisibleByByte<5, 10, 5>>(buf, sizeof(buf));
+
+// Usng the custom comparator for the string:
+template <Sig::String str>
+struct StrCmpNoCase : Sig::Str<str>
+{
+    static bool cmp(const void* const pos)
+    {
+        using Char = typename decltype(str)::Type;
+
+        const auto* const mem = static_cast<const Char*>(pos);
+        for (size_t i = 0; i < decltype(str)::k_len; ++i)
+        {
+            const auto low = [](const Char ch) -> Char
+            {
+                return ((ch >= static_cast<Char>('A')) && (ch <= static_cast<Char>('Z')))
+                    ? (ch + static_cast<Char>('a' - 'A'))
+                    : (ch);
+            };
+
+            const auto left = low(mem[i]);
+            const auto right = low(str.str.buf[i]);
+            
+            if (left != right)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+};
+
+Sig::find<StrCmpNoCase<"ASCII">, StrCmpNoCase<L"UTF-16">>(buf, size);
 ```
 
 ### 👻 Pattern + Mask:
