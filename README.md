@@ -10,7 +10,7 @@
 * Support for custom comparators.
 * Extensible and customizable patterns.
 * Header-only.
-* Modern C++ (requires C++17 or above).
+* Modern C++ (requires C++17 or above (and requires C++20 for `Sig::StrEq<"text">`)).
 * Works in usermode and kernelmode on Windows, Linux and MacOS.
 * Unit-tests.
 
