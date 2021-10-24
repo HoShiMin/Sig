@@ -420,7 +420,7 @@ struct Sig
     }
 
     template <typename Type, Type value, Type mask>
-    struct Bitmask : RawCmp<Type>
+    struct BitMask : RawCmp<Type>
     {
         static bool cmp(const void* const pos)
         {
