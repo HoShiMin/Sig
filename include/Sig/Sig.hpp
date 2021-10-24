@@ -2,6 +2,14 @@
 
 #include <cstring>
 
+
+#if (__cplusplus >= 202002) || _HAS_CXX20
+#   define sig_has_cxx20  (1)
+#else
+#   define sig_has_cxx20  (0)
+#endif
+
+
 struct Sig
 {
     enum class Tag
@@ -9,12 +17,14 @@ struct Sig
         val,
         any,
         pkg,
+        str,
         raw,
         rep,
         set,
         range,
         compound
     };
+
 
     struct Cmp
     {
@@ -197,6 +207,46 @@ struct Sig
         static constexpr auto k_count = sizeof...(Entries);
     };
 
+
+#if sig_has_cxx20
+    template <typename T, size_t len>
+    struct Arr
+    {
+        using Type = T;
+        static constexpr auto k_len = len;
+        Type buf[k_len]{};
+    };
+
+    template <typename T, size_t len>
+    struct String
+    {
+        using Type = T;
+        static constexpr auto k_len = len;
+
+        Arr<Type, k_len> str;
+
+        consteval String(const Type* const string)
+        {
+            for (size_t i = 0; i < k_len; ++i)
+            {
+                str.buf[i] = string[i];
+            }
+        }
+    };
+
+    template <typename Type, size_t len>
+    String(const Type(&)[len])->String<Type, len - 1>;
+
+    template <String string>
+    struct Str
+    {
+        using Type = typename decltype(string)::Type;
+        static constexpr auto k_tag = Tag::str;
+        static constexpr auto k_size = sizeof(Type) * string.k_len;
+        static constexpr auto k_count = string.k_len;
+    };
+#endif
+
     template <typename... Entries>
     struct Comparator;
 
@@ -306,7 +356,7 @@ struct Sig
     {
         static bool cmp(const void* const pos)
         {
-            if constexpr ((Entry::k_tag == Tag::val) || (Entry::k_tag == Tag::raw))
+            if constexpr ((Entry::k_tag == Tag::val) || (Entry::k_tag == Tag::raw) || (Entry::k_tag == Tag::str))
             {
                 const bool matches = Comparator<Entry>::cmp(pos);
                 return matches && Comparator<Entries...>::cmp(static_cast<const unsigned char*>(pos) + Entry::k_size);
@@ -357,6 +407,10 @@ struct Sig
                 return PackedCmp::cmp(typename Entry::Package{}, pos);
             }
             else if constexpr (Entry::k_tag == Tag::raw)
+            {
+                return Entry::cmp(pos);
+            }
+            else if constexpr (Entry::k_tag == Tag::str)
             {
                 return Entry::cmp(pos);
             }
@@ -418,6 +472,58 @@ struct Sig
 
         return nullptr;
     }
+
+
+#if sig_has_cxx20
+    template <String str>
+    struct StrEq : Str<str>
+    {
+        static bool cmp(const void* const pos)
+        {
+            const auto* const mem = static_cast<const typename decltype(str)::Type*>(pos);
+            for (size_t i = 0; i < decltype(str)::k_len; ++i)
+            {
+                if (mem[i] != str.str.buf[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    };
+
+    template <String str>
+    struct StrEqNoCase : Str<str>
+    {
+        static bool cmp(const void* const pos)
+        {
+            using Char = typename decltype(str)::Type;
+
+            const auto* const mem = static_cast<const Char*>(pos);
+            for (size_t i = 0; i < decltype(str)::k_len; ++i)
+            {
+                const auto low = [](const Char ch) -> Char
+                {
+                    return ((ch >= static_cast<Char>('A')) && (ch <= static_cast<Char>('Z')))
+                        ? (ch + static_cast<Char>('a' - 'A'))
+                        : (ch);
+                };
+
+                const auto left = low(mem[i]);
+                const auto right = low(str.str.buf[i]);
+                
+                if (left != right)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    };
+#endif
+
 
     template <typename Type, Type value, Type mask>
     struct BitMask : RawCmp<Type>
@@ -1027,3 +1133,5 @@ struct Sig
         return nullptr;
     }
 };
+
+#undef sig_has_cxx20

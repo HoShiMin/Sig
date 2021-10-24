@@ -17,7 +17,8 @@ namespace
         /* 36 */ 't', 'e', 'x', 't',
         /* 40 */ 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         /* 48 */ 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
-        /* 56 */ 0x0F, 0x05, 0xE9, '?', '?', '?', '?', 0xC3
+        /* 56 */ 0x0F, 0x05, 0xE9, '?', '?', '?', '?', 0xC3,
+        /* 64 */ 't', 0x00, 'e', 0x00, 'x', 0x00, 't', 0x00
     };
 
     namespace TemplateTests
@@ -113,14 +114,34 @@ namespace
             found = Sig::find<SamplePattern>(g_arr, sizeof(g_arr));
             sig_assert(found == &g_arr[56]);
 
-            found = Sig::find<SamplePattern, Sig::Byte<>>(g_arr, sizeof(g_arr));
-            sig_assert(found == nullptr);
-
-            found = Sig::find<SamplePattern>(g_arr, sizeof(g_arr) - 1);
-            sig_assert(found == nullptr);
-
             found = Sig::find<Custom<unsigned char, 2, 4, 4, 6, 6, 6>>(g_arr, sizeof(g_arr));
             sig_assert(found == &g_arr[4]);
+
+#if (__cplusplus >= 202002) || _HAS_CXX20
+            found = Sig::find<Sig::StrEq<"text">>(g_arr, sizeof(g_arr));
+            sig_assert(found == &g_arr[36]);
+
+            found = Sig::find<Sig::StrEq<"text">, Sig::Byte<>>(g_arr, sizeof(g_arr));
+            sig_assert(found == &g_arr[36]);
+
+            found = Sig::find<Sig::StrEq<"text">, Sig::Byte<0x00>>(g_arr, sizeof(g_arr));
+            sig_assert(found == &g_arr[36]);
+
+            found = Sig::find<Sig::StrEq<"Text">>(g_arr, sizeof(g_arr));
+            sig_assert(found == nullptr);
+
+            found = Sig::find<Sig::StrEqNoCase<"TEXT">>(g_arr, sizeof(g_arr));
+            sig_assert(found == &g_arr[36]);
+
+            found = Sig::find<Sig::StrEq<L"text">>(g_arr, sizeof(g_arr));
+            sig_assert(found == &g_arr[64]);
+
+            found = Sig::find<Sig::StrEq<L"Text">>(g_arr, sizeof(g_arr));
+            sig_assert(found == nullptr);
+
+            found = Sig::find<Sig::StrEqNoCase<L"TEXT">>(g_arr, sizeof(g_arr));
+            sig_assert(found == &g_arr[64]);
+#endif
         }
     }
 
@@ -174,12 +195,6 @@ namespace
 
             found = Sig::find<Sig::Mask::Eq<'.'>, Sig::Mask::Any<'?'>>(g_arr, sizeof(g_arr), "\x0F\x05\xE9xxxx\xC3", "...????.");
             sig_assert(found == &g_arr[56]);
-
-            found = Sig::find<Sig::Mask::Eq<'.'>, Sig::Mask::Any<'?'>>(g_arr, sizeof(g_arr), "\x0F\x05\xE9xxxx\xC3?", "...????.?");
-            sig_assert(found == nullptr);
-
-            found = Sig::find<Sig::Mask::Eq<'.'>, Sig::Mask::Any<'?'>>(g_arr, sizeof(g_arr) - 1, "\x0F\x05\xE9xxxx\xC3", "...????.");
-            sig_assert(found == nullptr);
 
             found = Sig::find<
                 Sig::Mask::Eq<'.'>,
