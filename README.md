@@ -14,6 +14,10 @@
 * Works in usermode and kernelmode on Windows, Linux and MacOS.
 * Unit-tests.
 
+### 🙏 Special thanks to:
+* [Cristei Gabriel](https://github.com/cristeigabriel) and his project [STB](https://github.com/cristeigabriel/STB) for the help in adding string literals support using C++20.
+* [vector-of-bool](https://github.com/vector-of-bool) for his awesome [article](https://vector-of-bool.github.io/2021/10/22/string-templates.html) about stringy templates.
+
 ### 🔍 Overview of pattern types:
 ```cpp
 // Template-based:
