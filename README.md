@@ -1,5 +1,5 @@
 # Sig
-## The most powerful and customizable binary pattern scanner written on modern C++
+## The most powerful and customizable binary pattern scanner written in modern C++
 ### ✔ Capabilities:
 * Support for all common pattern formats:
 * * Pattern + mask: `"\x11\x22\x00\x44"` + `"..?."`

@@ -294,14 +294,7 @@ struct Sig
         }
     };
 
-    template <>
-    struct SetComparator<>
-    {
-        static size_t equals(const void*)
-        {
-            return 0;
-        }
-    };
+
 
     struct SetCmp
     {
@@ -400,7 +393,8 @@ struct Sig
         {
             if constexpr (Entry::k_tag == Tag::val)
             {
-                return typename Entry::Cmp::cmp(pos);
+                using Cmp = typename Entry::Cmp;
+                return Cmp::cmp(pos);
             }
             else if constexpr (Entry::k_tag == Tag::pkg)
             {
@@ -441,14 +435,6 @@ struct Sig
         }
     };
 
-    template <>
-    struct Comparator<>
-    {
-        static bool cmp(const void* const)
-        {
-            return true;
-        }
-    };
 
     // Pattern format in a template way:
     // Sig::find<Sig::Byte<0x11, 0x22>, Sig::Char<'t', 'e', 'x', 't'>, Sig::Dword<>, Sig::Byte<0xFF>>(arr, sizeof(arr));
@@ -512,7 +498,7 @@ struct Sig
 
                 const auto left = low(mem[i]);
                 const auto right = low(str.str.buf[i]);
-                
+
                 if (left != right)
                 {
                     return false;
@@ -819,20 +805,6 @@ struct Sig
         }
     };
 
-    template <>
-    struct MaskComparator<>
-    {
-        static bool cmp(const char, const char, const char)
-        {
-            return false;
-        }
-
-        static bool cmp(const char, const char, const char, const char)
-        {
-            return false;
-        }
-    };
-
 
 
     // Pattern format: "\x11\x2\x00text" + "..?....", meaning of mask chars is customizable by Sig:Mask::* types
@@ -1131,6 +1103,39 @@ struct Sig
         }
 
         return nullptr;
+    }
+};
+
+template <>
+struct Sig::Comparator<>
+{
+    static bool cmp(const void* const)
+    {
+        return true;
+    }
+};
+
+
+template <>
+struct Sig::SetComparator<>
+{
+    static size_t equals(const void*)
+    {
+        return 0;
+    }
+};
+
+template <>
+struct Sig::MaskComparator<>
+{
+    static bool cmp(const char, const char, const char)
+    {
+        return false;
+    }
+
+    static bool cmp(const char, const char, const char, const char)
+    {
+        return false;
     }
 };
 
